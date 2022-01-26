@@ -1,0 +1,9 @@
+﻿.required::after{
+    content: " *";
+    font-weight: bold;
+    color: red;
+}
+
+span{
+    padding-left: 5px
+}
