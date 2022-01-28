@@ -13,11 +13,13 @@ namespace BlazorBattles.Client.Services
     {
         private readonly IToastService _toastService;
         private readonly HttpClient _http;
+        private readonly IBananaService _bananaService;
 
-        public UnitService(IToastService toastService, HttpClient http)
+        public UnitService(IToastService toastService, HttpClient http, IBananaService bananaService)
         {
             _toastService = toastService;
             _http = http;
+            _bananaService = bananaService;
         }
 
         public IList<Unit> Units { get; set; } = new List<Unit>();
@@ -26,11 +28,20 @@ namespace BlazorBattles.Client.Services
 
         public IToastService ToastService { get; }
 
-        public void AddUnit(int unitId)
+
+        public async Task AddUnit(int unitId)
         {
             var unit = Units.First(unit => unit.Id == unitId);
-            MyUnits.Add(new UserUnit { UnitId = unitId, HitPoints = unit.HitPoints });
-            _toastService.ShowSuccess($"Your {unit.Title} has been built!", "Unit built!");
+            var result = await _http.PostAsJsonAsync<int>("api/userunit", unitId);
+            if(result.StatusCode != System.Net.HttpStatusCode.OK)
+            {
+                _toastService.ShowError(await result.Content.ReadAsStringAsync());
+            }
+            else
+            {
+                await _bananaService.GetBananas();
+                _toastService.ShowSuccess($"Your {unit.Title} has been built!", "Unit built!");
+            }
         }
 
         public async Task LoadUnitAsync()
@@ -39,6 +50,11 @@ namespace BlazorBattles.Client.Services
             {
                 Units = await _http.GetFromJsonAsync<IList<Unit>>("api/Unit");
             }
+        }
+
+        public async Task LoadUserUnitAsync()
+        {
+            MyUnits = await _http.GetFromJsonAsync<IList<UserUnit>>("api/userunit");
         }
     }
 }
