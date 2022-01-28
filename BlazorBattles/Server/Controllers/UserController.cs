@@ -33,13 +33,64 @@ namespace BlazorBattles.Server.Controllers
         }
 
         [HttpPut("addbananas")]
-        public async Task<IActionResult> AddBananas([FromBody]int bananas)
+        public async Task<IActionResult> AddBananas([FromBody] int bananas)
         {
             var user = await _utilityService.GetUser();
             user.Bananas += bananas;
 
             await _context.SaveChangesAsync();
             return Ok(user.Bananas);
+        }
+
+        [HttpGet("leaderboard")]
+        public async Task<IActionResult> GetLeaderboard()
+        {
+            var users = await _context.Users.Where(user => !user.IsDeleted && user.IsConfirmed).ToListAsync();
+
+            users = users
+                .OrderByDescending(u => u.Victories)
+                .ThenBy(u => u.Defeats)
+                .ThenBy(u => u.DateCreated)
+                .ToList();
+
+            int rank = 1;
+            var response = users.Select(user => new UserStatistic
+            {
+                Rank = rank++,
+                UserId = user.Id,
+                Username = user.Username,
+                Battles = user.Battles,
+                Victories = user.Victories,
+                Defeats = user.Defeats
+            });
+
+            return Ok(response);
+        }
+
+        [HttpGet("history")]
+        public async Task<IActionResult> GetResult()
+        {
+            var user = await _utilityService.GetUser();
+            var battles = await _context.Battles
+                .Where(battle => battle.AttackerId == user.Id || battle.OpponentId == user.Id)
+                .Include(battle => battle.Attacker)
+                .Include(battle => battle.Opponent)
+                .Include(battle => battle.Winner)
+                .ToListAsync();
+
+            var history = battles.Select(battle => new BattleHistoryEntry
+            {
+                BattleId = battle.Id,
+                AttackerId = battle.AttackerId,
+                OpponentId = battle.OpponentId,
+                YouWon = battle.WinnerId == user.Id,
+                AttackerName = battle.Attacker.Username,
+                OpponentName = battle.Opponent.Username,
+                RoundsFought = battle.RoundsFought,
+                WinnerDamageDealt = battle.WinnerDamage,
+                BattleDate = battle.BattleDate
+            });
+            return Ok(history.OrderByDescending(h => h.BattleDate));
         }
     }
 }
